@@ -29,7 +29,7 @@ set(SOURCE_FILES ${CMAKE_SOURCE_DIR}/main.c)
 
 # Optionally, you can add extra compiler flags for performance in Release mode.
 # For example, to force high optimization:
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3")
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -fopenmp -O3")
 
 # Create the executable target using the project name.
 add_executable(${EXECUTABLE} ${SOURCE_FILES})

@@ -33,10 +33,12 @@ int main(int argc, char *argv[]) {
 		int min_makespan = 0;
 
 		// generate first sequence
+        #pragma omp parallel for schedule(static)
 		for (i = 0; i < n; i++)
 			seq[i] = i;
 
 		do {
+			#pragma omp parallel for schedule(static)
 			for (i = 0; i < m; i++)
 				machines[i] = -1;
 			int makespan = 0;
