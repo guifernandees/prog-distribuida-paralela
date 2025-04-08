@@ -17,9 +17,8 @@ int machines[21];
 int main(int argc, char *argv[]) {
 	int i, j;
 	int seq[101];
-
-	FILE *in = fopen("pfs.in", "r");
-	FILE *out = fopen("pfs.out", "w");
+	FILE *in = fopen("inputs/pfs.in", "r");
+	FILE *out = fopen("inputs/pfs.out", "w");
 
 	while (1) {
 		memset(tasks, 0, sizeof(tasks));
