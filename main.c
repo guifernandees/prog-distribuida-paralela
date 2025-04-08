@@ -9,20 +9,17 @@ typedef struct {
 	int exec[21];
 	int maq;
 } task;
+
 int n, m;
 task tasks[101];
 int machines[21];
 
-int main(int argc, char* argv[]) {
-
+int main(int argc, char *argv[]) {
 	int i, j;
-	FILE *in, *out;
-	int makespan, min_makespan;
 	int seq[101];
-	int cont_n;
 
-	in = fopen("pfs.in", "r");
-	out = fopen("pfs.out", "w");
+	FILE *in = fopen("pfs.in", "r");
+	FILE *out = fopen("pfs.out", "w");
 
 	while (1) {
 		memset(tasks, 0, sizeof(tasks));
@@ -34,7 +31,7 @@ int main(int argc, char* argv[]) {
 			for (j = 0; j < m; j++)
 				fscanf(in, "%d", &tasks[i].i[j]);
 		}
-		min_makespan = 0;
+		int min_makespan = 0;
 
 		// generate first sequence
 		for (i = 0; i < n; i++)
@@ -43,17 +40,16 @@ int main(int argc, char* argv[]) {
 		do {
 			for (i = 0; i < m; i++)
 				machines[i] = -1;
-			makespan = 0;
+			int makespan = 0;
 			for (i = 0; i < n; i++) {
 				memset(tasks[i].exec, 0, sizeof(tasks[i].exec));
 				tasks[i].maq = 0;
 			}
 
-			cont_n = 0;
+			int cont_n = 0;
 
 			// simulate permutation flow job schedule
 			while (cont_n < n) {
-
 				// schedule each task on a machine
 				for (i = cont_n; i < n; i++) {
 					if (machines[tasks[seq[i]].maq] < 0) {
@@ -66,7 +62,7 @@ int main(int argc, char* argv[]) {
 					if (machines[i] >= 0) {
 						tasks[machines[i]].exec[i]++;
 						if (tasks[machines[i]].exec[i]
-								>= tasks[machines[i]].i[i]) {
+						    >= tasks[machines[i]].i[i]) {
 							// free a machine
 							tasks[machines[i]].maq++;
 							if (tasks[machines[i]].maq >= m)
@@ -90,7 +86,7 @@ int main(int argc, char* argv[]) {
 				while (seq[i] >= n) {
 					for (j = i; j < n; j++)
 						seq[j] = 0;
-					if ((i - 1) >= 0)
+					if (i - 1 >= 0)
 						seq[--i]++;
 				}
 				cont_n = 0;
@@ -112,7 +108,6 @@ int main(int argc, char* argv[]) {
 			printf("\n");
 			fflush(stdout);
 #endif
-
 		} while (1);
 
 		fprintf(out, "%d\n", min_makespan);
