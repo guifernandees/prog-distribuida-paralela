@@ -12,6 +12,6 @@ clean:
 	@rm -f ${EXECUTABLE}
 
 run:
-	@./${EXECUTABLE}
+	OMP_PROC_BIND=true @./${EXECUTABLE}
 
 .PHONY: all clean
