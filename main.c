@@ -60,7 +60,7 @@ int simulate_permutation(int *perm, int n, int m, task tasks_global[]) {
     for (int i = 0; i < m; i++) {
         local_machines[i] = -1;
     }
-    
+
     // Reset each task's execution counters and machine index.
     for (int i = 0; i < n; i++) {
         memset(local_tasks[i].exec, 0, m * sizeof(int));
@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
         fscanf(in, "%d%d", &n, &m);
         if (n == 0 || m == 0)
             break;
-        
+
         // Read processing times for each task and each machine.
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < m; j++) {
