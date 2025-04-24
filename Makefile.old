@@ -1,0 +1,29 @@
+# Compiler and flags
+CC       := gcc
+CFLAGS   := -std=c99 -O3 -fopenmp -Wall -Wextra
+
+# Sources and targets
+SRC      := main.c
+OBJ      := $(SRC:.c=.o)
+TARGET   := pfs
+
+.PHONY: all run clean
+
+all: $(TARGET)
+
+# Link object files into the final executable
+$(TARGET): $(OBJ)
+	$(CC) $(CFLAGS) -o $@ $^
+
+# Compile .c files into .o files
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Run the program
+run: $(TARGET)
+	./$(TARGET)
+
+# Remove build artifacts
+clean:
+	rm -f $(OBJ) $(TARGET)
+
