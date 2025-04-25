@@ -1,0 +1,58 @@
+Elapsed Time: 1.349s
+    CPI Rate: 0.473
+    Average CPU Frequency: 2.868 GHz 
+    Total Thread Count: 4
+Effective Physical Core Utilization: 14.7% (2.933 out of 20)
+ | The metric value is low, which may signal a poor physical CPU cores
+ | utilization caused by:
+ |     - load imbalance
+ |     - threading runtime overhead
+ |     - contended synchronization
+ |     - thread/process underutilization
+ |     - incorrect affinity that utilizes logical cores instead of physical
+ |       cores
+ | Explore sub-metrics to estimate the efficiency of MPI and OpenMP parallelism
+ | or run the Locks and Waits analysis to identify parallel bottlenecks for
+ | other parallel runtimes.
+ |
+    Effective Logical Core Utilization: 7.2% (2.883 out of 40)
+     | The metric value is low, which may signal a poor logical CPU cores
+     | utilization. Consider improving physical core utilization as the first
+     | step and then look at opportunities to utilize logical cores, which in
+     | some cases can improve processor throughput and overall performance of
+     | multi-threaded applications.
+     |
+Memory Bound: 23.6% of Pipeline Slots
+ | The metric value is high. This can indicate that the significant fraction of
+ | execution pipeline slots could be stalled due to demand memory load and
+ | stores. Use Memory Access analysis to have the metric breakdown by memory
+ | hierarchy, memory bandwidth information, correlation by memory objects.
+ |
+    Cache Bound: 19.5% of Clockticks
+    DRAM Bound: N/A with HT on
+        DRAM Bandwidth Bound: 0.0% of Elapsed Time
+    NUMA: % of Remote Accesses: 0.0%
+
+    Bandwidth Utilization
+    Bandwidth Domain             Platform Maximum  Observed Maximum  Average  % of Elapsed Time with High BW Utilization(%)
+    ---------------------------  ----------------  ----------------  -------  ---------------------------------------------
+    DRAM, GB/sec                 120                          2.100    0.356                                           0.0%
+    DRAM Single-Package, GB/sec  60                           1.100    0.059                                           0.0%
+Collection and Platform Info
+    Application Command Line: ./pfs 
+    Operating System: 6.1.0-23-amd64 12.8
+    Computer Name: hype1
+    Result Size: 6.2 MB 
+    Collection start time: 03:13:50 25/04/2025 UTC
+    Collection stop time: 03:13:51 25/04/2025 UTC
+    Collector Type: Driverless Perf per-process sampling
+    CPU
+        Name: Intel(R) Xeon(R) E5/E7 v3 Processor code named Haswell
+        Frequency: 2.297 GHz 
+        Logical CPU Count: 40
+        Max DRAM Single-Package Bandwidth: 60.000 GB/s
+
+If you want to skip descriptions of detected performance issues in the report,
+enter: vtune -report summary -report-knob show-issues=false -r <my_result_dir>.
+Alternatively, you may view the report in the csv format: vtune -report
+<report_name> -format=csv.
