@@ -4,38 +4,48 @@
 #include <limits.h>
 #include <omp.h>
 
+#define MAX_TASKS    100
+#define MAX_MACHINES 21
+
 typedef struct {
-    int i[21];    // processing times per machine
-    int exec[21]; // execution progress per machine
-    int maq;      // current machine index (machine assigned to task so far)
+    int i[MAX_MACHINES];    // processing times per machine
+    int exec[MAX_MACHINES]; // execution progress per machine
+    int maq;                // current machine index
 } task;
 
-int n, m;
-task tasks[101];  // global tasks array (only first n used)
+// global tasks array; only indices 0..n-1 used
+task tasks[MAX_TASKS + 1];
 
-// Helper function: swap two integers.
-void swap(int *a, int *b) {
-    int temp = *a;
+int n, m;
+
+// swap two ints
+static inline void swap(int *a, int *b) {
+    int tmp = *a;
     *a = *b;
-    *b = temp;
+    *b = tmp;
 }
 
-// Compute factorial of n (assumes n is small).
-int factorial(int n) {
-    int result = 1;
-    for (int i = 2; i <= n; i++)
-        result *= i;
+// compute n!, but as size_t so it can hold up to 20! safely
+size_t factorial(int k) {
+    size_t result = 1;
+    for (int i = 2; i <= k; ++i) {
+        result *= (size_t)i;
+    }
     return result;
 }
 
-// Recursive function to generate all permutations of arr[start..n-1].
-// "perms" is an array (of size at least factorial(n)) to hold each complete permutation,
-// and perm_count tracks how many permutations have been stored.
-void generate_permutations(int *arr, int start, int n, int **perms, int *perm_count) {
+// recursively build all permutations of arr[0..n-1]
+void generate_permutations(int *arr, int start, int n,
+                           int **perms, size_t *perm_count) {
     if (start == n - 1) {
-        int *perm = (int *)malloc(n * sizeof(int));
-        memcpy(perm, arr, n * sizeof(int));
-        perms[*perm_count] = perm;
+        // allocate one more copy of the current perm
+        int *copy = malloc((size_t)n * sizeof *copy);
+        if (!copy) {
+            perror("malloc");
+            exit(EXIT_FAILURE);
+        }
+        memcpy(copy, arr, (size_t)n * sizeof *copy);
+        perms[*perm_count] = copy;
         (*perm_count)++;
         return;
     }
@@ -46,53 +56,42 @@ void generate_permutations(int *arr, int start, int n, int **perms, int *perm_co
     }
 }
 
-// Function to simulate the schedule for a given permutation.
-// Returns the makespan computed for the permutation.
 int simulate_permutation(int *perm, int n, int m, task tasks_global[]) {
-    int local_machines[21];
-    task local_tasks[101];
+    int local_machines[MAX_MACHINES];
+    task local_tasks[MAX_TASKS];
 
-    // Copy only the first n tasks from the global array.
-    memcpy(local_tasks, tasks_global, n * sizeof(task));
+    memcpy(local_tasks, tasks_global, (size_t)n * sizeof *local_tasks);
 
-    // Initialize machines array.
+    // mark all machines free
     #pragma omp simd
-    for (int i = 0; i < m; i++) {
+    for (int i = 0; i < m; i++)
         local_machines[i] = -1;
-    }
 
-    // Reset each task's execution counters and machine index.
+    // reset each task
     for (int i = 0; i < n; i++) {
-        memset(local_tasks[i].exec, 0, m * sizeof(int));
+        memset(local_tasks[i].exec, 0, (size_t)m * sizeof *local_tasks[i].exec);
         local_tasks[i].maq = 0;
     }
 
-    int cont_n = 0;
+    int finished = 0;
     int makespan = 0;
-
-    // Simulation loop: continue until all n tasks have finished processing.
-    while (cont_n < n) {
-        // Schedule tasks on available machines.
-        for (int i = cont_n; i < n; i++) {
-            int task_index = perm[i];
-            int current_machine = local_tasks[task_index].maq;
-            // If the machine is free, assign task to it.
-            if (current_machine < m && local_machines[current_machine] < 0) {
-                local_machines[current_machine] = task_index;
-            }
+    while (finished < n) {
+        // try to assign every unfinished task
+        for (int idx = finished; idx < n; idx++) {
+            int t = perm[idx];
+            int cur = local_tasks[t].maq;
+            if (cur < m && local_machines[cur] < 0)
+                local_machines[cur] = t;
         }
-
-        // Run one time unit of processing on each machine.
+        // advance one time‐unit
         for (int i = 0; i < m; i++) {
-            if (local_machines[i] >= 0) {
-                int t_index = local_machines[i];
-                local_tasks[t_index].exec[i]++;  // simulate processing time on machine i
-                if (local_tasks[t_index].exec[i] >= local_tasks[t_index].i[i]) {
-                    // Task finishes on this machine; move it to the next.
-                    local_tasks[t_index].maq++;
-                    if (local_tasks[t_index].maq >= m)
-                        cont_n++;  // task finished all machines
-                    local_machines[i] = -1;  // free up the machine
+            int t = local_machines[i];
+            if (t >= 0) {
+                if (++local_tasks[t].exec[i] >= local_tasks[t].i[i]) {
+                    local_tasks[t].maq++;
+                    if (local_tasks[t].maq >= m)
+                        finished++;
+                    local_machines[i] = -1;
                 }
             }
         }
@@ -101,60 +100,72 @@ int simulate_permutation(int *perm, int n, int m, task tasks_global[]) {
     return makespan;
 }
 
-int main(int argc, char *argv[]) {
-    FILE *in = fopen("inputs/pfs.in", "r");
+int main(void) {
+    FILE *in  = fopen("inputs/pfs.in", "r");
     FILE *out = fopen("inputs/pfs.out", "w");
     if (!in || !out) {
-        perror("Failed to open input or output file");
+        perror("fopen");
         return EXIT_FAILURE;
     }
 
     while (1) {
-        // Reset tasks structure.
-        memset(tasks, 0, sizeof(tasks));
-
-        fscanf(in, "%d%d", &n, &m);
-        if (n == 0 || m == 0)
+        if (fscanf(in, "%d %d", &n, &m) != 2)
+            break;
+        if (n == 0 && m == 0)
             break;
 
-        // Read processing times for each task and each machine.
+        // validate bounds so that n * sizeof(int) can never overflow
+        if (n < 1 || n > MAX_TASKS ||
+            m < 1 || m > MAX_MACHINES)
+        {
+            fprintf(stderr,
+                    "Invalid problem size: n must be 1..%d, m must be 1..%d\n",
+                    MAX_TASKS, MAX_MACHINES);
+            return EXIT_FAILURE;
+        }
+
+        // read processing times
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < m; j++) {
                 fscanf(in, "%d", &tasks[i].i[j]);
             }
         }
 
-        // Create the initial permutation [0, 1, ..., n-1].
-        int *init_perm = (int *)malloc(n * sizeof(int));
-        for (int i = 0; i < n; i++) {
+        // initial [0,1,2,...,n-1]
+        int *init_perm = malloc((size_t)n * sizeof *init_perm);
+        if (!init_perm) {
+            perror("malloc");
+            return EXIT_FAILURE;
+        }
+        for (int i = 0; i < n; i++)
             init_perm[i] = i;
+
+        // how many perms?
+        size_t num_perms = factorial(n);
+        int **perms = malloc(num_perms * sizeof *perms);
+        if (!perms) {
+            perror("malloc");
+            return EXIT_FAILURE;
         }
 
-        // Compute total number of permutations (n!).
-        int num_perms = factorial(n);
-        int **perms = (int **)malloc(num_perms * sizeof(int *));
-        int perm_count = 0;
+        size_t perm_count = 0;
         generate_permutations(init_perm, 0, n, perms, &perm_count);
         free(init_perm);
 
-        int global_min_makespan = INT_MAX;
-
-        // Parallel simulation of each permutation.
-        #pragma omp parallel for reduction(min:global_min_makespan) schedule(dynamic)
-        for (int p = 0; p < perm_count; p++) {
-            int curr_makespan = simulate_permutation(perms[p], n, m, tasks);
-            // The reduction clause automatically takes the minimum.
-            if (curr_makespan < global_min_makespan)
-                global_min_makespan = curr_makespan;
+        int best = INT_MAX;
+        #pragma omp parallel for reduction(min: best) schedule(dynamic)
+        for (size_t p = 0; p < perm_count; p++) {
+            int mspan = simulate_permutation(perms[p], n, m, tasks);
+            if (mspan < best)
+                best = mspan;
         }
 
-        // Free allocated memory for permutations.
-        for (int p = 0; p < perm_count; p++) {
+        // cleanup
+        for (size_t p = 0; p < perm_count; p++)
             free(perms[p]);
-        }
         free(perms);
 
-        fprintf(out, "%d\n", global_min_makespan);
+        fprintf(out, "%d\n", best);
         fflush(out);
     }
 
