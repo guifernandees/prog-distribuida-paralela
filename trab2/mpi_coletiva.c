@@ -1,4 +1,4 @@
-// MPI Matrix Multiplication using Point-to-Point Communication
+// MPI Matrix Multiplication using Collective Communication (instrumentado)
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,17 +26,30 @@ int main(int argc, char* argv[]) {
         initialize_matrices(n, A, B, C);
     }
 
-    double* local_A = (double*)malloc((n * n / size) * sizeof(double));
-    double* local_C = (double*)malloc((n * n / size) * sizeof(double));
+    double *local_A = (double*)malloc((n * n / size) * sizeof(double));
+    double *local_C = (double*)malloc((n * n / size) * sizeof(double));
 
-    double t1, t2;
-    if(rank == 0)
-	    t1 = MPI_Wtime();
+    double comm_time = 0.0, comp_time = 0.0;
+    double t_start = 0.0, t_end = 0.0;
 
+    if (rank == 0) {
+        t_start = MPI_Wtime();
+    }
 
-    MPI_Scatter(A, n * n / size, MPI_DOUBLE, local_A, n * n / size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    // Scatter A
+    double t0 = MPI_Wtime();
+    MPI_Scatter(A, n * n / size, MPI_DOUBLE,
+                local_A, n * n / size, MPI_DOUBLE,
+                0, MPI_COMM_WORLD);
+    comm_time += MPI_Wtime() - t0;
+
+    // Broadcast B
+    t0 = MPI_Wtime();
     MPI_Bcast(B, n * n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    comm_time += MPI_Wtime() - t0;
 
+    // Computação local
+    t0 = MPI_Wtime();
     for (int i = 0; i < n / size; i++) {
         for (int j = 0; j < n; j++) {
             local_C[i * n + j] = 0.0;
@@ -45,30 +58,23 @@ int main(int argc, char* argv[]) {
             }
         }
     }
+    comp_time += MPI_Wtime() - t0;
 
-    MPI_Gather(local_C, n * n / size, MPI_DOUBLE, C, n * n / size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    // Gather C
+    t0 = MPI_Wtime();
+    MPI_Gather(local_C, n * n / size, MPI_DOUBLE,
+               C, n * n / size, MPI_DOUBLE,
+               0, MPI_COMM_WORLD);
+    comm_time += MPI_Wtime() - t0;
 
-    if(rank == 0){
-	    t2 = MPI_Wtime();
-	    printf("Execution time: %.6f\n", t2 - t1);
+    if (rank == 0) {
+        t_end = MPI_Wtime();
+        printf("Total exec: %.6f  Comm: %.6f  Comp: %.6f\n",
+               t_end - t_start, comm_time, comp_time);
     }
 
-/*    if (rank == 0) {
-        printf("Result Matrix:\n");
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                printf("%f ", C[i * n + j]);
-            }
-            printf("\n");
-        }
-    }
-*/
-    free(A);
-    free(B);
-    free(C);
-    free(local_A);
-    free(local_C);
-
+    free(A); free(B); free(C);
+    free(local_A); free(local_C);
     MPI_Finalize();
     return 0;
 }

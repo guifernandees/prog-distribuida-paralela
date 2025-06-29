@@ -1,7 +1,8 @@
-// MPI Matrix Multiplication using Point-to-Point Communication
+// MPI Matrix Multiplication using Point-to-Point Blocking Communication (instrumentado)
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>  // para memcpy
 
 void initialize_matrices(int n, double* A, double* B, double* C) {
     for (int i = 0; i < n * n; i++) {
@@ -26,27 +27,40 @@ int main(int argc, char* argv[]) {
         initialize_matrices(n, A, B, C);
     }
 
-    double t1, t2;
-    if(rank == 0)
-	    t1 = MPI_Wtime();
+    double *local_A = (double*)malloc((n * n / size) * sizeof(double));
+    double *local_C = (double*)malloc((n * n / size) * sizeof(double));
 
-
-    double* local_A = (double*)malloc((n * n / size) * sizeof(double));
-    double* local_C = (double*)malloc((n * n / size) * sizeof(double));
+    double comm_time = 0.0, comp_time = 0.0;
+    double t_start = 0.0, t_end = 0.0;
 
     if (rank == 0) {
+        t_start = MPI_Wtime();
+    }
+
+    if (rank == 0) {
+        double t0 = MPI_Wtime();
         for (int i = 1; i < size; i++) {
-            MPI_Send(A + i * (n * n / size), n * n / size, MPI_DOUBLE, i, 0, MPI_COMM_WORLD);
+            MPI_Send(A + i * (n * n / size),
+                     n * n / size, MPI_DOUBLE, i, 0, MPI_COMM_WORLD);
         }
-        for (int i = 0; i < n * n / size; i++) {
+        comm_time += MPI_Wtime() - t0;
+                for (int i = 0; i < n * n / size; i++) {
             local_A[i] = A[i];
         }
     } else {
-        MPI_Recv(local_A, n * n / size, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        double t0 = MPI_Wtime();
+        MPI_Recv(local_A, n * n / size, MPI_DOUBLE,
+                 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        comm_time += MPI_Wtime() - t0;
     }
 
+    // Broadcast de B
+    double t0 = MPI_Wtime();
     MPI_Bcast(B, n * n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    comm_time += MPI_Wtime() - t0;
 
+    // Computação local
+    t0 = MPI_Wtime();
     for (int i = 0; i < n / size; i++) {
         for (int j = 0; j < n; j++) {
             local_C[i * n + j] = 0.0;
@@ -55,40 +69,34 @@ int main(int argc, char* argv[]) {
             }
         }
     }
+    comp_time += MPI_Wtime() - t0;
 
-    if (rank == 0) {
+    if (rank == 0) {        
         for (int i = 0; i < n * n / size; i++) {
             C[i] = local_C[i];
         }
         for (int i = 1; i < size; i++) {
-            MPI_Recv(C + i * (n * n / size), n * n / size, MPI_DOUBLE, i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            double t1 = MPI_Wtime();
+            MPI_Recv(C + i * (n * n / size),
+                     n * n / size, MPI_DOUBLE,
+                     i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            comm_time += MPI_Wtime() - t1;
         }
     } else {
-        MPI_Send(local_C, n * n / size, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD);
+        double t1 = MPI_Wtime();
+        MPI_Send(local_C, n * n / size, MPI_DOUBLE,
+                 0, 1, MPI_COMM_WORLD);
+        comm_time += MPI_Wtime() - t1;
     }
 
-   if(rank == 0){
-	t2 = MPI_Wtime();
-	printf("Execution time: %.6f\n", t2 - t1);
-   }
-
-
-/*    if (rank == 0) {
-        printf("Result Matrix:\n");
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                printf("%f ", C[i * n + j]);
-            }
-            printf("\n");
-        }
+    if (rank == 0) {
+        t_end = MPI_Wtime();
+        printf("Total exec: %.6f  Comm: %.6f  Comp: %.6f\n",
+               t_end - t_start, comm_time, comp_time);
     }
-*/
-    free(A);
-    free(B);
-    free(C);
-    free(local_A);
-    free(local_C);
 
+    free(A); free(B); free(C);
+    free(local_A); free(local_C);
     MPI_Finalize();
     return 0;
 }
